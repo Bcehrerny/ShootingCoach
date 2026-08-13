@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #f6f4ee;
+  --ink: #1c1c1a;
+  --ring-red: #b3382c;
+  --line: rgba(28, 28, 26, 0.12);
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.font-mono-data {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.target-dot::before {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 999px;
+  background: var(--ring-red);
+  margin-right: 0.4em;
+}
+
+::selection {
+  background: var(--ring-red);
+  color: white;
+}
