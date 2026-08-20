@@ -8,6 +8,25 @@ import { GOAL_TOTAL_SCORE, recentHistoryText, saveLocalSession } from '@/lib/loc
 
 type Step = 'upload' | 'reviewing' | 'analyzing' | 'done';
 
+// Our API routes always return JSON, even on error — but the platform layer
+// in front of them (Vercel) doesn't: a function timeout, crash, or gateway
+// error returns its own plain-text/HTML page instead. Parsing that with
+// res.json() throws a confusing "Unexpected token..." error. This reads the
+// body as text first so we can surface a clear message either way.
+async function parseApiResponse(res: Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (res.status === 504 || res.status === 502 || res.status === 503) {
+      throw new Error(
+        'The server took too long to respond (a timeout). This usually means the analysis is taking longer than your hosting plan allows — try again, and if it keeps happening, check your Vercel function timeout / plan limits.'
+      );
+    }
+    throw new Error(`Server returned an unexpected response (status ${res.status}): ${text.slice(0, 200)}`);
+  }
+}
+
 export default function HomePage() {
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
@@ -32,7 +51,7 @@ export default function HomePage() {
       const fd = new FormData();
       fd.append('image', file);
       const res = await fetch('/api/extract', { method: 'POST', body: fd });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok) throw new Error(json.error || 'Extraction failed');
       setExtracted(json.extractedData);
       setStep('reviewing');
@@ -56,7 +75,7 @@ export default function HomePage() {
           const fd = new FormData();
           fd.append('image', file);
           const up = await fetch('/api/upload', { method: 'POST', body: fd });
-          const upJson = await up.json();
+          const upJson = await parseApiResponse(up);
           imageUrl = upJson.url ?? null;
         } catch {
           // non-fatal
@@ -78,7 +97,7 @@ export default function HomePage() {
           clientHistorySummary: recentHistoryText()
         })
       });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok) throw new Error(json.error || 'Analysis failed');
       setAnalysis(json.analysis);
 

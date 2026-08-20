@@ -104,25 +104,27 @@ prioritized by what will most directly close the gap to a *consistent* 610+, usi
 (if provided) to judge whether the shooter is trending toward, stuck below, or already achieving that goal
 consistently.
 
-Respond with ONLY a JSON object matching this schema (no markdown fences, no extra commentary):
+Respond with ONLY a JSON object matching this schema (no markdown fences, no extra commentary). Keep the whole
+response focused and efficient — 2-4 strengths, 2-4 likelyCauses, 2-3 practiceRecommendations is plenty; do not
+pad with repetitive or low-value entries just to fill space:
 {
   "summary": string,                     // 2-4 sentence overview of the session
-  "strengths": string[],                 // specific things done well, each tied to evidence in the data
+  "strengths": string[],                 // 2-4 specific things done well, each tied to evidence in the data
   "likelyCauses": [
     {
       "observation": string,             // the specific pattern in the data
       "possibleTechnicalCause": string,  // professional interpretation of why it likely happened
       "linkedToReflection": string|null  // connection to the shooter's own notes, ONLY if a real link exists, else null
     }
-  ],
+  ],                                      // 2-4 items
   "practiceRecommendations": [
     {
       "focusArea": string,               // e.g. "Trigger control", "Standing hold stability", "Follow-through"
       "drill": string,                   // a concrete, specific drill or exercise
       "rationale": string                // why this drill addresses the observed issue and helps close the gap to 610+
     }
-  ],
-  "trendNote": string|null,              // note comparing to recent session history, if history was provided; else null
+  ],                                      // 2-3 items, prioritized by impact
+  "trendNote": string|null,              // 1-2 sentences comparing to recent session history, if provided; else null
   "goalProgress": {
     "targetScore": 610,
     "currentSessionScore": number|null,    // this session's totalScoreDecimal
@@ -130,11 +132,12 @@ Respond with ONLY a JSON object matching this schema (no markdown fences, no ext
     "recentAverageScore": number|null,     // average total across the recent history provided, incl. this session, or null if no history
     "consistencyNote": string              // honest assessment: one-off vs. repeatable habit, and what's needed to make 610+ consistent
   },
-  "mandarinExplanation": string           // a complete, natural-language explanation in Simplified Chinese (Mandarin) of this
+  "mandarinExplanation": string           // a complete explanation in Simplified Chinese (Mandarin) of this
                                            // entire report for a Chinese-speaking shooter: the summary, what went well, the likely
                                            // causes (including ones not tied to their reflection), the practice recommendations, and
-                                           // progress toward the 610+ goal. Write it as flowing prose/paragraphs a coach would say
-                                           // out loud, not a literal field-by-field translation.
+                                           // progress toward the 610+ goal. Write it as flowing prose a coach would say out loud, not
+                                           // a literal field-by-field translation. Keep it tight: roughly 150-250 Chinese characters,
+                                           // covering the most important points only — this is a spoken-style recap, not a full essay.
 }`;
 
 export function buildAnalysisUserPrompt(
