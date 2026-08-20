@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { ExtractedSessionData, ShotSeries } from '@/lib/types';
 
 interface Props {
@@ -50,20 +51,13 @@ export default function ExtractedDataEditor({ data, onChange }: Props) {
           </thead>
           <tbody className="font-mono-data">
             {data.series.map((s, i) => (
-              <tr key={i} className="border-b border-black/5">
+              <tr key={i} className="border-b border-black/5 align-top">
                 <td className="py-2 pr-2 whitespace-nowrap">{s.shotRange}</td>
                 <td className="py-2 pr-2">
-                  <input
-                    className="w-full border border-black/15 rounded px-2 py-1"
-                    value={s.shots.join(', ')}
-                    onChange={(e) => {
-                      const shots = e.target.value
-                        .split(',')
-                        .map((v) => parseFloat(v.trim()))
-                        .filter((v) => !isNaN(v));
-                      updateSeries(data, i, { shots });
-                      onChange(updateSeries(data, i, { shots }));
-                    }}
+                  <ShotsInput
+                    shots={s.shots}
+                    printedSum={s.seriesSum}
+                    onCommit={(shots) => onChange(updateSeries(data, i, { shots }))}
                   />
                 </td>
                 <td className="py-2 pr-2">
@@ -105,6 +99,79 @@ export default function ExtractedDataEditor({ data, onChange }: Props) {
           onChange={(v) => onChange({ ...data, overallGroupDiameterMm: v })}
         />
       </div>
+    </div>
+  );
+}
+
+// The shots list needs to be freely editable (add, remove, change any value),
+// but a plain controlled <input> whose `value` is re-derived from the parsed
+// number array on every keystroke fights the user: it re-normalizes spacing
+// on each character, which snaps the cursor to the end and silently drops
+// whatever's mid-typed (e.g. a trailing comma waiting for the next number).
+// That made it look like you could only delete from the end.
+//
+// Fix: edit raw text in local state, and only parse + push the numbers up to
+// the parent on blur (or Enter). The text field is free to be in any
+// "invalid" intermediate state while you're actively typing.
+function ShotsInput({
+  shots,
+  printedSum,
+  onCommit
+}: {
+  shots: number[];
+  printedSum?: number;
+  onCommit: (shots: number[]) => void;
+}) {
+  const [text, setText] = useState(shots.join(', '));
+
+  // Keep in sync if the underlying data changes from elsewhere (e.g. a
+  // fresh extraction, or "Start over"), but don't fight the user's typing —
+  // this only re-syncs when the component isn't the one causing the change.
+  useEffect(() => {
+    setText(shots.join(', '));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shots.join(', ')]);
+
+  function commit() {
+    const parsed = text
+      .split(',')
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0)
+      .map((v) => parseFloat(v));
+    const valid = parsed.filter((v) => !isNaN(v));
+    onCommit(valid);
+    setText(valid.join(', '));
+  }
+
+  const parsedForCheck = text
+    .split(',')
+    .map((v) => parseFloat(v.trim()))
+    .filter((v) => !isNaN(v));
+  const computedSum = parsedForCheck.reduce((a, b) => a + b, 0);
+  const sumMismatch =
+    typeof printedSum === 'number' && parsedForCheck.length > 0 && Math.abs(computedSum - printedSum) > 0.15;
+
+  return (
+    <div>
+      <input
+        className={`w-full border rounded px-2 py-1 ${sumMismatch ? 'border-amber-400' : 'border-black/15'}`}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        placeholder="e.g. 10.5, 9.6, 10.2, ..."
+      />
+      {sumMismatch && (
+        <p className="text-xs text-amber-700 mt-1 font-sans">
+          These shots sum to {computedSum.toFixed(1)}, but the sheet shows {printedSum}. Double-check the values
+          against the photo.
+        </p>
+      )}
     </div>
   );
 }
@@ -152,3 +219,4 @@ function NumField({
     </label>
   );
 }
+

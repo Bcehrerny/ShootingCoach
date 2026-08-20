@@ -50,6 +50,14 @@ export interface CoachingAnalysis {
     rationale: string;
   }[];
   trendNote?: string;                     // note referencing historical sessions, if available
+  goalProgress?: {
+    targetScore: number;                  // the shooter's standing goal, e.g. 610
+    currentSessionScore: number | null;
+    gapToTarget: number | null;           // targetScore - currentSessionScore
+    recentAverageScore: number | null;    // average total across recent sessions, incl. this one
+    consistencyNote: string;              // is this a one-off good session, or a repeatable habit?
+  };
+  mandarinExplanation?: string;           // full explanation of the above analysis, in Mandarin Chinese
 }
 
 export interface SessionRecord {

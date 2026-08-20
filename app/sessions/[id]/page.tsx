@@ -3,18 +3,26 @@
 import { useEffect, useState } from 'react';
 import AnalysisReport from '@/components/AnalysisReport';
 import type { SessionRecord } from '@/lib/types';
+import { getLocalSession } from '@/lib/localHistory';
 
 export default function SessionDetailPage({ params }: { params: { id: string } }) {
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const local = getLocalSession(params.id);
+    if (local) {
+      setSession(local);
+      return;
+    }
+    // Fallback for sessions that only exist in a server database.
     fetch(`/api/sessions/${params.id}`)
       .then((r) => r.json())
       .then((j) => {
         if (j.error) setError(j.error);
         else setSession(j.session);
-      });
+      })
+      .catch(() => setError('Could not load this session.'));
   }, [params.id]);
 
   if (error) return <p className="text-sm text-red-700">{error}</p>;

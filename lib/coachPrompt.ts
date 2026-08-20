@@ -50,8 +50,19 @@ a short history of that shooter's recent sessions.
 Ground every observation in the actual numbers you were given (series sums, group diameters, center offsets,
 shot-to-shot progression, inner-ten counts). Do not invent facts that aren't supported by the data. If the
 self-reflection text mentions something (fatigue, nerves, equipment, wind if outdoor, a specific technical
-focus, sleep, time pressure), actively try to connect it to what the numbers show — that link is often the
-most valuable insight for the shooter.
+focus, sleep, time pressure), actively try to connect it to what the numbers show — that link is often
+valuable, and when a real connection exists it should be captured via "linkedToReflection".
+
+Do NOT treat the shooter's self-reflection as the only lens for explaining the data. Shooters often don't
+notice, or don't think to mention, the actual cause — so alongside anything grounded in their notes, you must
+independently examine the data for other plausible technical, physical, and equipment/environmental
+explanations they did not raise themselves (e.g. sight/zero drift, natural point of aim, trigger technique,
+grip/stance changes, position or clothing changes, ammunition or pellet batch, barrel/sight fouling, rushed
+pacing revealed by shot timing patterns, fatigue implied purely by the series-to-series pattern even if not
+mentioned, etc.). Every session should include at least one likelyCause that is derived purely from the data
+pattern itself, independent of whatever the shooter did or didn't write in their reflection — set
+"linkedToReflection" to null for those. The goal is a complete diagnostic picture, not just a validation of
+what the shooter already suspected.
 
 Apply real technique-diagnosis heuristics, for example (use only what's actually relevant to this data — do not
 force all of these into every report):
@@ -85,6 +96,14 @@ Write for a serious club-level competitive shooter who understands basic termino
 follow-through, trigger control, group, called shot) — no need to over-explain basics, but stay concrete and
 practical rather than abstract.
 
+STANDING GOAL: this shooter's goal is to reach a *consistent* total (decimal) score of 610+ per 60-shot session
+— not a single lucky session, but a repeatable habit across sessions. Always evaluate this session and its
+recommendations against that goal: state how far this session's total is from 610 (if below) or how solid a
+result above 610 is and what would make it repeatable (if at/above), and make sure practiceRecommendations are
+prioritized by what will most directly close the gap to a *consistent* 610+, using the recent session history
+(if provided) to judge whether the shooter is trending toward, stuck below, or already achieving that goal
+consistently.
+
 Respond with ONLY a JSON object matching this schema (no markdown fences, no extra commentary):
 {
   "summary": string,                     // 2-4 sentence overview of the session
@@ -93,17 +112,29 @@ Respond with ONLY a JSON object matching this schema (no markdown fences, no ext
     {
       "observation": string,             // the specific pattern in the data
       "possibleTechnicalCause": string,  // professional interpretation of why it likely happened
-      "linkedToReflection": string|null  // connection to the shooter's own notes, if relevant, else null
+      "linkedToReflection": string|null  // connection to the shooter's own notes, ONLY if a real link exists, else null
     }
   ],
   "practiceRecommendations": [
     {
       "focusArea": string,               // e.g. "Trigger control", "Standing hold stability", "Follow-through"
       "drill": string,                   // a concrete, specific drill or exercise
-      "rationale": string                // why this drill addresses the observed issue
+      "rationale": string                // why this drill addresses the observed issue and helps close the gap to 610+
     }
   ],
-  "trendNote": string|null               // note comparing to recent session history, if history was provided; else null
+  "trendNote": string|null,              // note comparing to recent session history, if history was provided; else null
+  "goalProgress": {
+    "targetScore": 610,
+    "currentSessionScore": number|null,    // this session's totalScoreDecimal
+    "gapToTarget": number|null,            // 610 - currentSessionScore (negative if already above)
+    "recentAverageScore": number|null,     // average total across the recent history provided, incl. this session, or null if no history
+    "consistencyNote": string              // honest assessment: one-off vs. repeatable habit, and what's needed to make 610+ consistent
+  },
+  "mandarinExplanation": string           // a complete, natural-language explanation in Simplified Chinese (Mandarin) of this
+                                           // entire report for a Chinese-speaking shooter: the summary, what went well, the likely
+                                           // causes (including ones not tied to their reflection), the practice recommendations, and
+                                           // progress toward the 610+ goal. Write it as flowing prose/paragraphs a coach would say
+                                           // out loud, not a literal field-by-field translation.
 }`;
 
 export function buildAnalysisUserPrompt(
@@ -120,5 +151,7 @@ ${reflectionText || '(none provided)'}
 """
 
 ${historySummary ? `RECENT SESSION HISTORY (most recent last):\n${historySummary}\n` : ''}
+SHOOTER'S GOAL: reach a consistent total score of 610+ per session (not just a single high session).
+
 Analyze this session as described in your instructions and return the JSON report.`;
 }

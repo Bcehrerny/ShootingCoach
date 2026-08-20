@@ -4,6 +4,7 @@ import { useState } from 'react';
 import ExtractedDataEditor from '@/components/ExtractedDataEditor';
 import AnalysisReport from '@/components/AnalysisReport';
 import type { CoachingAnalysis, ExtractedSessionData } from '@/lib/types';
+import { GOAL_TOTAL_SCORE, recentHistoryText, saveLocalSession } from '@/lib/localHistory';
 
 type Step = 'upload' | 'reviewing' | 'analyzing' | 'done';
 
@@ -16,6 +17,7 @@ export default function HomePage() {
   const [analysis, setAnalysis] = useState<CoachingAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
 
   function handleFile(f: File) {
     setFile(f);
@@ -61,6 +63,7 @@ export default function HomePage() {
         }
       }
 
+      const sessionDate = parseSessionDate(extracted.sessionDateTime);
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,13 +71,29 @@ export default function HomePage() {
           extractedData: extracted,
           reflectionText: reflection,
           shooterId: 'default',
-          sessionDate: parseSessionDate(extracted.sessionDateTime),
-          imageUrl
+          sessionDate,
+          imageUrl,
+          // Recent history from this browser's localStorage, used by the coach model
+          // whenever the server database isn't available.
+          clientHistorySummary: recentHistoryText()
         })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Analysis failed');
       setAnalysis(json.analysis);
+
+      // localStorage is the reliable source of truth for history — save here
+      // regardless of whether the server-side database save succeeded.
+      const saved = saveLocalSession({
+        sessionDate,
+        discipline: extracted.discipline ?? null,
+        imageUrl,
+        extractedData: extracted,
+        reflectionText: reflection,
+        analysis: json.analysis,
+        serverId: json.session?.id ?? null
+      });
+      setSavedSessionId(saved.id);
       setStep('done');
     } catch (e: any) {
       setError(e.message);
@@ -92,14 +111,18 @@ export default function HomePage() {
     setExtracted(null);
     setAnalysis(null);
     setError(null);
+    setSavedSessionId(null);
   }
 
   return (
     <main>
       <h1 className="text-2xl font-semibold tracking-tight mb-1">New session</h1>
-      <p className="text-black/60 text-sm mb-8">
+      <p className="text-black/60 text-sm mb-1">
         Upload a photo of your target sheet and add your self-reflection. Get a coaching analysis grounded in your
         actual shot data.
+      </p>
+      <p className="text-black/40 text-xs mb-8">
+        Goal: a consistent total score of {GOAL_TOTAL_SCORE}+ · 目标：稳定达到 {GOAL_TOTAL_SCORE}+ 环
       </p>
 
       {error && (
@@ -108,36 +131,38 @@ export default function HomePage() {
 
       {step === 'upload' && (
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Target sheet photo</label>
-            <label
-              htmlFor="file-input"
-              className="block border-2 border-dashed border-black/20 rounded-xl p-8 text-center cursor-pointer hover:border-[var(--ring-red)]/50 transition-colors"
-            >
-              {preview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview} alt="preview" className="max-h-96 mx-auto rounded-lg" />
-              ) : (
-                <span className="text-black/50 text-sm">Click to choose a photo, or drag one here</span>
-              )}
-              <input
-                id="file-input"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-              />
-            </label>
-          </div>
+          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+            <div>
+              <label className="block text-sm font-medium mb-2">Target sheet photo</label>
+              <label
+                htmlFor="file-input"
+                className="flex flex-col items-center justify-center border-2 border-dashed border-black/20 rounded-xl p-8 text-center cursor-pointer hover:border-[var(--ring-red)]/50 transition-colors min-h-[168px]"
+              >
+                {preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={preview} alt="preview" className="max-h-96 mx-auto rounded-lg" />
+                ) : (
+                  <span className="text-black/50 text-sm">Click to choose a photo</span>
+                )}
+                <input
+                  id="file-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
+              </label>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Self-reflection</label>
-            <textarea
-              className="w-full border border-black/15 rounded-lg px-3 py-2 text-sm min-h-[120px]"
-              placeholder="How did the session feel? Any nerves, fatigue, equipment changes, technical focus, things you noticed while shooting…"
-              value={reflection}
-              onChange={(e) => setReflection(e.target.value)}
-            />
+            <div>
+              <label className="block text-sm font-medium mb-2">Self-reflection</label>
+              <textarea
+                className="w-full border border-black/15 rounded-lg px-3 py-2 text-sm min-h-[168px]"
+                placeholder="How did the session feel? Any nerves, fatigue, equipment changes, technical focus, things you noticed while shooting…"
+                value={reflection}
+                onChange={(e) => setReflection(e.target.value)}
+              />
+            </div>
           </div>
 
           <button
@@ -177,7 +202,10 @@ export default function HomePage() {
         <div className="space-y-8">
           <AnalysisReport analysis={analysis} />
           <div className="flex gap-3">
-            <a href="/history" className="text-sm underline text-black/60 hover:text-black">
+            <a
+              href={savedSessionId ? `/sessions/${savedSessionId}` : '/history'}
+              className="text-sm underline text-black/60 hover:text-black"
+            >
               View history
             </a>
             <button onClick={reset} className="text-sm underline text-black/60 hover:text-black">

@@ -29,13 +29,18 @@ export async function POST(req: NextRequest) {
       reflectionText,
       shooterId = 'default',
       sessionDate = null,
-      imageUrl = null
+      imageUrl = null,
+      clientHistorySummary = null
     }: {
       extractedData: ExtractedSessionData;
       reflectionText: string;
       shooterId?: string;
       sessionDate?: string | null;
       imageUrl?: string | null;
+      // Recent-session summary built client-side from localStorage. Used whenever the
+      // database isn't configured/reachable, so trend context (and the 610+ goal
+      // tracking) still works without a database.
+      clientHistorySummary?: string | null;
     } = body;
 
     if (!extractedData) {
@@ -49,6 +54,9 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       // Database might not be initialized yet (first run before schema.sql applied) — proceed without history.
       console.warn('Could not fetch history, continuing without it:', e);
+    }
+    if (!historySummary && clientHistorySummary) {
+      historySummary = clientHistorySummary;
     }
 
     const response = await anthropic.messages.create({
